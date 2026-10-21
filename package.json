@@ -1,0 +1,51 @@
+{
+  "name": "opslens-ai",
+  "version": "0.1.0",
+  "private": true,
+  "description": "OpsLens AI — intelligent software operations platform: incident intelligence, RAG-powered investigation agent, and human-approved remediation.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "eval": "tsx evals/run.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:seed": "tsx scripts/seed.ts",
+    "worker": "tsx src/server/jobs/worker.ts"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "^4.0.98",
+    "@ai-sdk/react": "^4.0.151",
+    "ai": "^7.0.147",
+    "bcryptjs": "^3.0.2",
+    "bullmq": "^6.3.19",
+    "clsx": "^2.1.1",
+    "drizzle-orm": "^0.45.4",
+    "ioredis": "^6.0.0",
+    "lucide-react": "latest",
+    "next": "16.4.2",
+    "pg": "^8.23.1",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "server-only": "^0.0.1",
+    "tailwind-merge": "latest",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^22",
+    "@types/pg": "^8",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "drizzle-kit": "^0.31.11",
+    "tailwindcss": "^4.3.3",
+    "tsx": "latest",
+    "typescript": "^5.9",
+    "vitest": "^5.0.5"
+  }
+}

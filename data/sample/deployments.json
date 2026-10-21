@@ -1,0 +1,5 @@
+[
+  { "service": "payment-service", "version": "v2.13.0", "commitSha": "a91c2e7f0b", "deployedBy": "ci-bot", "deployedAt": "2026-10-19T09:12:00Z", "changelog": "Add idempotency keys to refunds endpoint." },
+  { "service": "payment-service", "version": "v2.14.0", "commitSha": "4f7d1b2c9e", "deployedBy": "ci-bot", "deployedAt": "2026-10-20T14:00:00Z", "changelog": "Switch gateway client to new stripe-proxy; reduce gateway timeout from 10s to 2s; lower DB pool max from 50 to 20 to cut connection costs." },
+  { "service": "checkout-api", "version": "v5.2.1", "commitSha": "c0ffee1234", "deployedBy": "ci-bot", "deployedAt": "2026-10-18T16:40:00Z", "changelog": "Cart UI copy changes." }
+]

@@ -1,0 +1,38 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: opslens
+      POSTGRES_PASSWORD: opslens
+      POSTGRES_DB: opslens
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U opslens"]
+      interval: 5s
+      retries: 10
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+  app:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://opslens:opslens@postgres:5432/opslens
+      REDIS_URL: redis://redis:6379
+    ports: ["3000:3000"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    profiles: ["full"]
+  worker:
+    build: .
+    command: ["node", "--import", "tsx", "src/server/jobs/worker.ts"]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://opslens:opslens@postgres:5432/opslens
+      REDIS_URL: redis://redis:6379
+    depends_on: [postgres, redis]
+    profiles: ["full"]
+volumes:
+  pgdata:
