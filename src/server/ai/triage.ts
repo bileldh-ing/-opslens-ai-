@@ -1,5 +1,6 @@
 import { createInvestigationTools } from "./tools";
 import { tokenize } from "./embeddings";
+import { normalizeMessage } from "../ingest/fingerprint";
 import type { InvestigationReport } from "./report";
 
 /**
@@ -45,11 +46,31 @@ const GENERIC = new Set(
  * Puts the error group the question is about first: the group whose title shares the most
  * specific words with the question, falling back to frequency order.
  */
-export function focusOnQuestion<T extends { title: string; occurrences: number }>(groups: T[], question: string): T[] {
-  const q = new Set(tokenize(question).filter((t) => t.length >= 4 && !GENERIC.has(t)));
+export function focusOnQuestion<T extends { title: string; occurrences: number }>(
+  groups: T[],
+  question: string,
+  exclude: Iterable<string> = [],
+): T[] {
+  const q = new Set(focusTerms(question, exclude));
   if (q.size === 0) return groups;
   const score = (g: T) => tokenize(g.title).filter((t) => q.has(t)).length;
   return [...groups].sort((a, b) => score(b) - score(a) || b.occurrences - a.occurrences);
+}
+
+/**
+ * Moves downstream symptoms ("Upstream payment-service returned 500" logged by checkout-api)
+ * behind the errors of the service they point at, so the analysis starts at the source.
+ */
+export function rootCauseFirst<T extends { title: string; service: string | null; occurrences: number }>(groups: T[]): T[] {
+  const services = new Set(groups.map((g) => g.service).filter((s): s is string => Boolean(s)));
+  const isSymptom = (g: T) => [...services].some((svc) => svc !== g.service && g.title.toLowerCase().includes(svc));
+  return [...groups].sort((a, b) => Number(isSymptom(a)) - Number(isSymptom(b)) || b.occurrences - a.occurrences);
+}
+
+/** Specific words of the question (not "service", "error", "after"...), used to focus retrieval. */
+export function focusTerms(question: string, exclude: Iterable<string> = []): string[] {
+  const skip = new Set(exclude);
+  return [...new Set(tokenize(question).filter((t) => t.length >= 4 && !GENERIC.has(t) && !skip.has(t)))];
 }
 
 export async function runTriage(opts: {
@@ -77,7 +98,15 @@ export async function runTriage(opts: {
     limit: 5,
     ...(namedService ? { service: namedService } : {}),
   });
-  const groups = focusOnQuestion(found, opts.question);
+  // "payment service" in plain words also scopes to payment-service.
+  const q = opts.question.toLowerCase();
+  const spokenService = namedService
+    ? undefined
+    : [...new Set(found.map((g) => g.service).filter(Boolean))].find((svc) => q.includes(svc!.replace(/-/g, " ")));
+  const scoped = spokenService ? found.filter((g) => g.service === spokenService) : found;
+  // Service names say where to look, not what went wrong: keep them out of the focus terms.
+  const serviceWords = new Set(found.flatMap((g) => tokenize(g.service ?? "")).concat(namedService ? tokenize(namedService) : []));
+  const groups = focusOnQuestion(rootCauseFirst(scoped), opts.question, serviceWords);
 
   if (groups.length === 0) {
     const keywords = tokenize(opts.question).slice(0, 5).join(" ") || "error";
@@ -131,6 +160,29 @@ export async function runTriage(opts: {
     ? [{ type: "incident" as const, id: similarPast.id, excerpt: clip(`${similarPast.title}. Root cause: ${similarPast.rootCause ?? "not recorded"}`) }]
     : [];
 
+  // When the question is about something the top error group does not cover ("the connection pool"),
+  // look for that signal in all log levels: warnings often explain errors.
+  const terms = focusTerms(opts.question, serviceWords);
+  const topCoversFocus = tokenize(top.title).some((t) => terms.includes(t));
+  let signal: { pattern: string; logs: LogRow[]; matched: number } | undefined;
+  if (terms.length && !topCoversFocus) {
+    const patterns = new Map<string, { logs: LogRow[]; terms: Set<string> }>();
+    for (const term of terms.slice(0, 3)) {
+      const { logs: hits } = await call<{ logs: LogRow[] }>("search_logs", { query: term, limit: 20 });
+      for (const log of hits) {
+        const key = normalizeMessage(log.message);
+        const entry = patterns.get(key) ?? { logs: [], terms: new Set<string>() };
+        if (!entry.logs.some((l) => l.id === log.id)) entry.logs.push(log);
+        entry.terms.add(term);
+        patterns.set(key, entry);
+      }
+    }
+    const best = [...patterns.entries()].sort(
+      ([, a], [, b]) => b.terms.size - a.terms.size || b.logs.length - a.logs.length,
+    )[0];
+    if (best) signal = { pattern: best[0], logs: best[1].logs, matched: best[1].terms.size };
+  }
+
   const hypotheses: InvestigationReport["hypotheses"] = [];
 
   if (suspect && gap !== undefined) {
@@ -162,6 +214,24 @@ export async function runTriage(opts: {
     evidence: [...sampleEvidence, ...logEvidence.slice(0, 1), ...docEvidence],
     counterEvidence: [],
   });
+
+  if (signal) {
+    const changelog = suspect?.changelog?.toLowerCase() ?? "";
+    const linked = Boolean(suspect && terms.some((t) => changelog.includes(t)));
+    const level = signal.logs[0].level;
+    hypotheses.unshift({
+      cause: `Contributing factor: "${clip(signal.pattern, 90)}" (${signal.logs.length} ${level} lines)${linked ? `, made worse by ${suspect!.version}` : ""}`,
+      confidence: linked ? 0.6 : 0.3,
+      reasoning: linked
+        ? `${signal.logs.length} log lines match the question, and ${suspect!.version}'s changelog changes the same component: "${clip(suspect!.changelog!, 160)}". This likely amplifies the primary failure "${clip(top.title, 80)}".`
+        : `${signal.logs.length} log lines match the question, but nothing links them to a change, so their role is unproven.`,
+      evidence: [
+        ...signal.logs.slice(0, 2).map((l) => ({ type: "log" as const, id: l.id, excerpt: clip(`${l.level.toUpperCase()} ${l.message}`) })),
+        ...(linked ? [{ type: "deployment" as const, id: suspect!.id, excerpt: clip(`${suspect!.version}: ${suspect!.changelog}`) }] : []),
+      ],
+      counterEvidence: [`"${clip(top.title, 80)}" remains the dominant error; this signal may be a consequence rather than a cause.`],
+    });
+  }
 
   const second = groups[1];
   if (second && second.occurrences / total >= 0.2 && second.sampleLog) {

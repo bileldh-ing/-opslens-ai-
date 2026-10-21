@@ -25,6 +25,10 @@ function createDb(): DB {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { drizzle } = require("drizzle-orm/pglite") as typeof import("drizzle-orm/pglite");
     const target = url.slice("pglite://".length);
+    if (target !== "memory") {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      (require("node:fs") as typeof import("node:fs")).mkdirSync(target, { recursive: true });
+    }
     const client = new PGlite({ dataDir: target === "memory" ? undefined : target, extensions: { vector } });
     globalForDb.close = () => client.close();
     return drizzle(client, { schema }) as unknown as DB;
