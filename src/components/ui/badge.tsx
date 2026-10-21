@@ -15,6 +15,16 @@ const tones: Record<string, string> = {
   high: "bg-red-500/15 text-red-300 ring-red-500/30",
   medium: "bg-amber-500/15 text-amber-300 ring-amber-500/30",
   low: "bg-emerald-500/15 text-emerald-300 ring-emerald-500/30",
+  owner: "bg-violet-500/15 text-violet-300 ring-violet-500/30",
+  admin: "bg-blue-500/15 text-blue-300 ring-blue-500/30",
+  member: "bg-slate-500/15 text-slate-200 ring-slate-500/30",
+  viewer: "bg-slate-500/10 text-slate-400 ring-slate-500/20",
+  team: "bg-blue-500/15 text-blue-300 ring-blue-500/30",
+  enterprise: "bg-violet-500/15 text-violet-300 ring-violet-500/30",
+  free: "bg-slate-500/15 text-slate-300 ring-slate-500/30",
+  likely_cause_found: "bg-emerald-500/15 text-emerald-300 ring-emerald-500/30",
+  inconclusive: "bg-amber-500/15 text-amber-300 ring-amber-500/30",
+  insufficient_data: "bg-slate-500/15 text-slate-300 ring-slate-500/30",
 };
 
 export function Badge({ value, className }: { value: string; className?: string }) {
@@ -26,7 +36,7 @@ export function Badge({ value, className }: { value: string; className?: string 
         className,
       )}
     >
-      {value.replace("_", " ")}
+      {value.replaceAll("_", " ")}
     </span>
   );
 }

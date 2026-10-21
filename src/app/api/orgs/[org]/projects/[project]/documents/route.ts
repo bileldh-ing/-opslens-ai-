@@ -21,7 +21,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ org: string; p
     if (!(file instanceof File)) return jsonError(400, "Missing file");
     const sourceType = String(form.get("sourceType") ?? "doc");
     const key = await storage.put(`docs/${project.id}`, file.name, Buffer.from(await file.arrayBuffer()));
-    const jobId = await enqueue("index-document", {
+    const job = await enqueue("index-document", {
       projectId: project.id,
       storageKey: key,
       title: file.name,
@@ -33,9 +33,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ org: string; p
       action: "document.upload",
       targetType: "project",
       targetId: project.id,
-      metadata: { file: file.name, jobId },
+      metadata: { file: file.name, jobId: job.jobId },
     });
-    return Response.json({ jobId }, { status: 202 });
+    return Response.json(job, { status: job.mode === "queued" ? 202 : 200 });
   } catch (err) {
     return handleApiError(err);
   }

@@ -1,13 +1,23 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireOrg } from "@/lib/auth";
+import { can } from "@/lib/rbac";
+import { setIncidentStatus } from "@/app/actions/workspace";
+import { Button } from "@/components/ui/button";
 import { getIncident } from "@/server/queries";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
+const NEXT_STATUS = {
+  open: [["investigating", "Acknowledge"]],
+  investigating: [["mitigated", "Mark mitigated"], ["resolved", "Resolve"]],
+  mitigated: [["resolved", "Resolve"], ["investigating", "Reopen"]],
+  resolved: [["open", "Reopen"]],
+} as const satisfies Record<string, ReadonlyArray<readonly ["open" | "investigating" | "mitigated" | "resolved", string]>>;
+
 export default async function IncidentPage({ params }: { params: Promise<{ org: string; id: string }> }) {
   const { org: slug, id } = await params;
-  const { org } = await requireOrg(slug, "incident.read");
+  const { org, role } = await requireOrg(slug, "incident.read");
   const data = await getIncident(org.id, id);
   if (!data) notFound();
   const { incident, service, events, groups, deployment, investigations, project } = data;
@@ -21,9 +31,19 @@ export default async function IncidentPage({ params }: { params: Promise<{ org: 
           <h1 className="mt-1 text-2xl font-semibold">{incident.title}</h1>
           <div className="mt-3 flex gap-2"><Badge value={incident.severity} /><Badge value={incident.status} /></div>
         </div>
-        <Link href={`/${slug}/investigate?project=${project.slug}&incident=${incident.id}&q=${ask}`} className="rounded-lg bg-accent px-4 py-2 text-sm font-medium">
-          Investigate with AI
-        </Link>
+        <div className="flex shrink-0 flex-wrap justify-end gap-2">
+          {can(role, "incident.write") &&
+            NEXT_STATUS[incident.status].map(([status, label]) => (
+              <form key={status} action={setIncidentStatus.bind(null, slug, incident.id, status)}>
+                <Button variant="outline">{label}</Button>
+              </form>
+            ))}
+          {can(role, "investigation.run") && (
+            <Link href={`/${slug}/investigate?project=${project.slug}&incident=${incident.id}&q=${ask}`} className="rounded-lg bg-accent px-4 py-2 text-sm font-medium hover:bg-blue-500">
+              Investigate with AI
+            </Link>
+          )}
+        </div>
       </div>
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">

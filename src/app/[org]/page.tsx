@@ -11,14 +11,23 @@ export default async function Overview({ params }: { params: Promise<{ org: stri
   const o = await getOverview(org.id);
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Overview</h1>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold">Overview</h1>
+          <p className="mt-1 text-sm text-muted">{org.name} · activity in the 24 hours up to {o.windowEnd.toLocaleString()}</p>
+        </div>
+        <div className="flex gap-2">
+          <Link href={`/${slug}/sources`} className="rounded-lg border border-border px-3.5 py-2 text-sm hover:bg-panel-2">Upload logs</Link>
+          <Link href={`/${slug}/investigate`} className="rounded-lg bg-accent px-3.5 py-2 text-sm font-medium hover:bg-blue-500">New investigation</Link>
+        </div>
+      </div>
       <div className="grid gap-4 md:grid-cols-3">
-        <Card><p className="text-sm text-muted">Active incidents</p><p className="mt-2 text-3xl font-semibold">{o.openIncidents}</p></Card>
-        <Card><p className="text-sm text-muted">Remediations awaiting approval</p><p className="mt-2 text-3xl font-semibold">{o.pendingApprovals}</p></Card>
-        <Card><p className="text-sm text-muted">Errors (24h)</p><p className="mt-2 text-3xl font-semibold">{o.errorSeries.reduce((n, d) => n + d.errors, 0)}</p></Card>
+        <Kpi label="Active incidents" value={o.openIncidents} tone={o.openIncidents > 0 ? "text-red-300" : "text-emerald-300"} href={`/${slug}/incidents`} />
+        <Kpi label="Remediations awaiting approval" value={o.pendingApprovals} tone={o.pendingApprovals > 0 ? "text-amber-300" : "text-slate-100"} href={`/${slug}/remediations`} />
+        <Kpi label="Errors in window" value={o.errorSeries.reduce((n, d) => n + d.errors, 0)} tone="text-slate-100" />
       </div>
       <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2"><CardTitle>Error rate, last 24 hours</CardTitle><ErrorChart data={o.errorSeries} /></Card>
+        <Card className="lg:col-span-2"><CardTitle>Errors per hour</CardTitle><ErrorChart data={o.errorSeries} /></Card>
         <Card>
           <CardTitle>Top recurring errors</CardTitle>
           <ul className="mt-4 space-y-3 text-sm">
@@ -41,4 +50,14 @@ export default async function Overview({ params }: { params: Promise<{ org: stri
       </Card>
     </div>
   );
+}
+
+function Kpi({ label, value, tone, href }: { label: string; value: number; tone: string; href?: string }) {
+  const body = (
+    <Card className="transition hover:border-accent/40">
+      <p className="text-sm text-muted">{label}</p>
+      <p className={`mt-2 text-3xl font-semibold tabular-nums ${tone}`}>{value.toLocaleString()}</p>
+    </Card>
+  );
+  return href ? <Link href={href}>{body}</Link> : body;
 }

@@ -3,7 +3,13 @@ import { db, schema } from "@/db";
 
 export async function getOverview(orgId: string) {
   const projectIds = db.select({ id: schema.projects.id }).from(schema.projects).where(eq(schema.projects.orgId, orgId));
-  const since = new Date(Date.now() - 24 * 3600 * 1000);
+  // Anchor the 24h window at the newest event, so a quiet workspace still shows its last activity.
+  const [{ latest }] = await db
+    .select({ latest: sql<string | null>`max(${schema.logEvents.timestamp})` })
+    .from(schema.logEvents)
+    .where(inArray(schema.logEvents.projectId, projectIds));
+  const end = latest ? new Date(latest) : new Date();
+  const since = new Date(end.getTime() - 24 * 3600 * 1000);
 
   const [openIncidents, pending, errorSeries, topGroups, recentIncidents] = await Promise.all([
     db.select({ value: count() }).from(schema.incidents)
@@ -29,6 +35,7 @@ export async function getOverview(orgId: string) {
   ]);
 
   return {
+    windowEnd: end,
     openIncidents: openIncidents[0].value,
     pendingApprovals: pending[0].value,
     errorSeries,

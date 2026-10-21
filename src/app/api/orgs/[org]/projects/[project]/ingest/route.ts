@@ -29,7 +29,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ org: string; p
 
     const key = await storage.put(`logs/${project.id}`, file.name, Buffer.from(await file.arrayBuffer()));
     const service = (form.get("service") as string | null) ?? undefined;
-    const jobId = await enqueue("ingest-logs", { projectId: project.id, storageKey: key, service });
+    const job = await enqueue("ingest-logs", { projectId: project.id, storageKey: key, service });
 
     await audit({
       orgId: auth.org.id,
@@ -37,9 +37,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ org: string; p
       action: "logs.upload",
       targetType: "project",
       targetId: project.id,
-      metadata: { file: file.name, bytes: file.size, jobId },
+      metadata: { file: file.name, bytes: file.size, jobId: job.jobId },
     });
-    return Response.json({ jobId, storageKey: key }, { status: 202 });
+    return Response.json({ ...job, storageKey: key }, { status: job.mode === "queued" ? 202 : 200 });
   } catch (err) {
     return handleApiError(err);
   }

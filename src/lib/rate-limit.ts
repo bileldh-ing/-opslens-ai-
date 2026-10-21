@@ -1,4 +1,4 @@
-import { getRedis } from "./redis";
+import { getRedis, redisConfigured } from "./redis";
 
 export type RateLimitResult = { allowed: boolean; remaining: number; resetMs: number };
 
@@ -12,6 +12,7 @@ export async function rateLimit(
   windowMs: number,
   now = Date.now(),
 ): Promise<RateLimitResult> {
+  if (!redisConfigured) return memoryRateLimit(key, limit, windowMs, now);
   const redis = getRedis();
   const redisKey = `rl:${key}`;
   const member = `${now}-${Math.random().toString(36).slice(2)}`;
@@ -28,4 +29,18 @@ export async function rateLimit(
     return { allowed: false, remaining: 0, resetMs: windowMs };
   }
   return { allowed: true, remaining: Math.max(0, limit - count), resetMs: windowMs };
+}
+
+const windows = new Map<string, number[]>();
+
+/** Same sliding-window semantics, in process memory. For single-instance local runs only. */
+export function memoryRateLimit(key: string, limit: number, windowMs: number, now = Date.now()): RateLimitResult {
+  const hits = (windows.get(key) ?? []).filter((t) => t > now - windowMs);
+  if (hits.length >= limit) {
+    windows.set(key, hits);
+    return { allowed: false, remaining: 0, resetMs: hits[0] + windowMs - now };
+  }
+  hits.push(now);
+  windows.set(key, hits);
+  return { allowed: true, remaining: limit - hits.length, resetMs: windowMs };
 }

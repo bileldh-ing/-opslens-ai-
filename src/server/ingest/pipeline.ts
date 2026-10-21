@@ -138,7 +138,7 @@ export async function detectIncidents(projectId: string, groupIds: string[]) {
           hasFatal: svcGroups.some((g) => g.level === "fatal"),
         }),
         startedAt: firstSeen,
-        summaryEmbedding: process.env.OPENAI_API_KEY ? await embedText(summary) : null,
+        summaryEmbedding: await embedText(summary),
       })
       .returning();
 

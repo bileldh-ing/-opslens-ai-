@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { UIMessage } from "ai";
+import { createUIMessageStreamResponse, type UIMessage } from "ai";
 import { getOrgContextForApi } from "@/lib/auth";
 import { assertCan } from "@/lib/rbac";
 import { handleApiError, jsonError } from "@/lib/api";
@@ -35,7 +35,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ org: string; p
       .join(" ")
       .trim();
 
-    const { investigationId, result } = await runInvestigation({
+    const { investigationId, stream } = await runInvestigation({
       projectId: project.id,
       userId: auth.user.id,
       question,
@@ -52,7 +52,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ org: string; p
       metadata: { question },
     });
 
-    return result.toUIMessageStreamResponse({ headers: { "x-investigation-id": investigationId } });
+    return createUIMessageStreamResponse({ stream, headers: { "x-investigation-id": investigationId } });
   } catch (err) {
     return handleApiError(err);
   }
