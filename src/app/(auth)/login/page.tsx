@@ -12,6 +12,11 @@ export default function LoginPage() {
         { name: "password", label: "Password", type: "password", autoComplete: "current-password" },
       ]}
       footer={{ text: "New here?", href: "/signup", link: "Create a workspace" }}
+      hint={
+        <p className="rounded-lg bg-panel-2 p-3 text-xs text-muted">
+          Demo workspace: <span className="font-mono text-slate-300">demo@opslens.dev</span> / <span className="font-mono text-slate-300">opslens-demo-123</span>
+        </p>
+      }
     />
   );
 }

@@ -3,8 +3,28 @@ on:
   push: { branches: [main] }
   pull_request:
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:
+  verify:
+    name: Typecheck, tests, evals
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run typecheck
+      # Unit + integration tests. Integration runs on embedded Postgres (PGlite + pgvector).
+      - run: npm test
+      # Golden investigation cases (deterministic triage when no model key is configured).
+      - run: npm run eval
+        env: { DATABASE_URL: "pglite://.data/eval" }
+
+  postgres:
+    name: Migrations + build against real Postgres
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -20,9 +40,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
-      - run: npm install
-      - run: npm run typecheck
-      - run: npm test
-      - run: psql postgres://opslens:opslens@localhost:5432/opslens -c "CREATE EXTENSION IF NOT EXISTS vector;"
-      - run: npm run db:push -- --force
+      - run: npm ci
+      - run: npm run db:migrate
+      - run: npm run db:seed
       - run: npm run build

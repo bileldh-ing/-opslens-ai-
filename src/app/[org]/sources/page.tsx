@@ -87,7 +87,7 @@ export default async function SourcesPage({ params }: { params: Promise<{ org: s
           <ul className="mt-4 divide-y divide-border text-sm">
             {deployments.map((d) => (
               <li key={d.id} className="flex items-center justify-between gap-3 py-2">
-                <span className="font-mono text-xs">{d.service} <span className="text-accent">{d.version}</span> <span className="text-muted">{d.commitSha.slice(0, 7)}</span></span>
+                <span className="font-mono text-xs">{d.service} <span className="text-accent">{d.version}</span> <span className="text-muted">{d.commitSha?.slice(0, 7)}</span></span>
                 <span className="text-xs text-muted">{d.deployedAt.toLocaleString()}</span>
               </li>
             ))}

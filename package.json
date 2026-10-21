@@ -1,22 +1,22 @@
 {
   "name": "opslens-ai",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "OpsLens AI — intelligent software operations platform: incident intelligence, RAG-powered investigation agent, and human-approved remediation.",
+  "description": "OpsLens AI \u2014 intelligent software operations platform: incident intelligence, RAG-powered investigation agent, and human-approved remediation.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "eval": "tsx evals/run.ts",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
+    "db:migrate": "tsx scripts/migrate.ts",
     "db:push": "drizzle-kit push",
     "db:seed": "tsx scripts/seed.ts",
-    "worker": "tsx src/server/jobs/worker.ts"
+    "worker": "tsx src/server/jobs/worker.ts",
+    "setup": "tsx scripts/seed.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.98",
@@ -49,5 +49,8 @@
     "tsx": "4.23.15",
     "typescript": "^5.9",
     "vitest": "^5.0.5"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

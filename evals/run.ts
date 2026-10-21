@@ -1,6 +1,6 @@
 /**
  * Runs golden cases against the seeded DB and prints a scorecard.
- * Usage: npm run db:seed && npm run eval
+ * Usage: npm run eval  (migrates and seeds the configured database if needed)
  */
 import { eq } from "drizzle-orm";
 import { readUIMessageStream } from "ai";
@@ -8,9 +8,13 @@ import { db, closeDb, schema } from "../src/db";
 import { aiConfigured } from "../src/server/ai/models";
 import { runInvestigation } from "../src/server/ai/agent";
 import type { InvestigationReport } from "../src/server/ai/report";
+import { runMigrations } from "../src/db/migrate";
+import { seedDemo } from "../src/server/demo-seed";
 import { CASES } from "./cases";
 
 async function main() {
+  await runMigrations();
+  await seedDemo(() => {}); // no-op when the demo workspace already exists
   const [project] = await db.select().from(schema.projects).where(eq(schema.projects.slug, "production")).limit(1);
   const [user] = await db.select().from(schema.users).where(eq(schema.users.email, "demo@opslens.dev")).limit(1);
   if (!project || !user) throw new Error("Seed the database first (npm run db:seed).");

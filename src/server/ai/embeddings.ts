@@ -16,7 +16,7 @@ export async function embedText(value: string): Promise<number[]> {
 
 export async function embedTexts(values: string[]): Promise<number[][]> {
   if (values.length === 0) return [];
-  if (!aiConfigured) return values.map(hashEmbedding);
+  if (!aiConfigured) return values.map((v) => hashEmbedding(v));
   const { embeddings } = await embedMany({ model: embeddingModel(), values, maxParallelCalls: 4 });
   return embeddings;
 }
