@@ -17,7 +17,7 @@ OpsLens is a multi-tenant SaaS built around existing LLMs. The engineering work 
 ## Try it in one minute (no Docker, no API key)
 
 ```bash
-git clone https://github.com/bileldh-ing/opslens-ai && cd opslens-ai
+git clone https://github.com/bileldh-ing/-opslens-ai- && cd -- -opslens-ai-
 npm install
 cp .env.example .env
 npm run setup        # migrates an embedded Postgres + pgvector and seeds the demo
