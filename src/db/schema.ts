@@ -465,3 +465,98 @@ export const servicesRelations = relations(services, ({ one, many }) => ({
 export const deploymentsRelations = relations(deployments, ({ one }) => ({
   service: one(services, { fields: [deployments.serviceId], references: [services.id] }),
 }));
+
+/* ------------------------------------------------------------------ */
+/* Integrations: ingest API keys, outbound webhooks, eval history      */
+/* ------------------------------------------------------------------ */
+
+/** Project-scoped ingest keys. Only a SHA-256 of the secret is stored; the prefix identifies it in UIs. */
+export const apiKeys = pgTable(
+  "api_keys",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    prefix: text("prefix").notNull(),
+    keyHash: text("key_hash").notNull().unique(),
+    scopes: text("scopes").array().default(sql`ARRAY['logs:write']::text[]`).notNull(),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index("api_keys_org_idx").on(t.orgId)],
+);
+
+export const webhooks = pgTable(
+  "webhooks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    url: text("url").notNull(),
+    format: text("format").default("json").notNull(), // json | slack
+    secret: text("secret").notNull(), // HMAC signing secret (needed to sign, so kept server-side)
+    events: text("events").array().notNull(),
+    enabled: boolean("enabled").default(true).notNull(),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    ...timestamps,
+  },
+  (t) => [index("webhooks_org_idx").on(t.orgId)],
+);
+
+export const webhookDeliveries = pgTable(
+  "webhook_deliveries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    webhookId: uuid("webhook_id")
+      .notNull()
+      .references(() => webhooks.id, { onDelete: "cascade" }),
+    event: text("event").notNull(),
+    ok: boolean("ok").notNull(),
+    statusCode: integer("status_code"),
+    durationMs: integer("duration_ms").notNull(),
+    error: text("error"),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index("webhook_deliveries_hook_idx").on(t.webhookId, t.createdAt)],
+);
+
+export type EvalCaseResult = {
+  name: string;
+  question: string;
+  passed: boolean;
+  failures: string[];
+  status: string | null;
+  topCause: string | null;
+  confidence: number | null;
+  citations: number;
+  durationMs: number;
+  investigationId: string;
+};
+
+/** Results of golden-case eval runs (CLI, CI or in-app), shown on the Quality page. */
+export const evalRuns = pgTable(
+  "eval_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id").references(() => organizations.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
+    analyst: text("analyst").notNull(), // model id or "deterministic-triage"
+    trigger: text("trigger").notNull(), // cli | ui | ci
+    passed: integer("passed").notNull(),
+    total: integer("total").notNull(),
+    durationMs: integer("duration_ms").notNull(),
+    results: jsonb("results").$type<EvalCaseResult[]>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index("eval_runs_org_idx").on(t.orgId, t.createdAt)],
+);

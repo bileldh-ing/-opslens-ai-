@@ -8,6 +8,7 @@ import { requireOrg } from "@/lib/auth";
 import { assertWithinLimit, PlanLimitError } from "@/lib/plans";
 import { audit } from "@/lib/audit";
 import { slugify } from "@/lib/utils";
+import { incidentPayloads, notify } from "@/server/integrations/webhooks";
 
 const NewProject = z.object({ name: z.string().trim().min(2).max(60), description: z.string().trim().max(200).optional() });
 
@@ -51,7 +52,7 @@ const STATUS_FLOW = {
 export async function setIncidentStatus(orgSlug: string, incidentId: string, status: keyof typeof STATUS_FLOW) {
   const { org, user } = await requireOrg(orgSlug, "incident.write");
   const [row] = await db
-    .select({ id: schema.incidents.id })
+    .select({ id: schema.incidents.id, status: schema.incidents.status })
     .from(schema.incidents)
     .innerJoin(schema.projects, eq(schema.projects.id, schema.incidents.projectId))
     .where(and(eq(schema.incidents.id, incidentId), eq(schema.projects.orgId, org.id)));
@@ -67,7 +68,18 @@ export async function setIncidentStatus(orgSlug: string, incidentId: string, sta
     body: `${STATUS_FLOW[status]} by ${user.name}`,
     actorId: user.id,
   });
-  await audit({ orgId: org.id, actorId: user.id, action: `incident.${status}`, targetType: "incident", targetId: incidentId });
+  await audit({
+    orgId: org.id,
+    actorId: user.id,
+    action: `incident.${status}`,
+    targetType: "incident",
+    targetId: incidentId,
+    metadata: { from: row.status, to: status },
+  });
+  if (row.status !== status) {
+    const [p] = await incidentPayloads([incidentId]);
+    if (p) await notify(org.id, "incident.status_changed", { ...p.payload, previousStatus: row.status, changedBy: user.name });
+  }
   revalidatePath(`/${orgSlug}/incidents/${incidentId}`);
   revalidatePath(`/${orgSlug}/incidents`);
 }

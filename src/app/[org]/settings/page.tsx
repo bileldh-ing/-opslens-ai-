@@ -9,6 +9,20 @@ import { hoursAgo, listProjects } from "@/server/queries";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { InviteForm, ProjectForm } from "@/components/settings-forms";
+import { ApiKeyForm, ConfirmSubmit, WebhookForm, WebhookTestButton } from "@/components/integrations-forms";
+import { EmptyState } from "@/components/empty-state";
+import { KeyRound, Webhook } from "lucide-react";
+import { env } from "@/lib/env";
+import { listApiKeys } from "@/server/integrations/api-keys";
+import { listWebhooks } from "@/server/integrations/webhooks";
+import {
+  createApiKeyAction,
+  createWebhookAction,
+  deleteWebhookAction,
+  revokeApiKeyAction,
+  testWebhookAction,
+  toggleWebhookAction,
+} from "@/app/actions/integrations";
 
 function Meter({ label, used, limit }: { label: string; used: number; limit: number }) {
   const pct = Number.isFinite(limit) ? Math.min(100, Math.round((used / limit) * 100)) : 0;
@@ -49,6 +63,10 @@ export default async function SettingsPage({ params }: { params: Promise<{ org: 
       .where(and(eq(schema.projects.orgId, org.id), gte(schema.investigations.createdAt, dayAgo))),
   ]);
   const limits = PLAN_LIMITS[org.plan];
+  const manage = can(role, "integrations.manage");
+  const [keys, { hooks, deliveries }] = manage ? await Promise.all([listApiKeys(org.id), listWebhooks(org.id)]) : [[], { hooks: [], deliveries: [] }];
+  const hookNames = new Map(hooks.map((h) => [h.id, h.name]));
+  const appUrl = env().APP_URL.replace(/\/$/, "");
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -118,6 +136,112 @@ export default async function SettingsPage({ params }: { params: Promise<{ org: 
           </div>
         )}
       </Card>
+
+      {manage && (
+        <Card id="api-keys">
+          <div className="flex items-center justify-between">
+            <CardTitle>Ingest API keys</CardTitle>
+            <span className="text-xs text-muted">POST {appUrl}/api/v1/logs</span>
+          </div>
+          <p className="mt-1 text-xs text-muted">
+            Project-scoped keys for shipping logs over HTTP (JSON lines, JSON arrays or OTLP logs JSON). Keys are stored hashed and shown once.
+          </p>
+          <div className="mt-4">
+            <ApiKeyForm action={createApiKeyAction.bind(null, slug)} projects={projects.map((p) => ({ slug: p.slug, name: p.name }))} />
+          </div>
+          {keys.length === 0 ? (
+            <div className="mt-4"><EmptyState icon={KeyRound} title="No ingest keys yet" description="Create one to send logs from an OpenTelemetry Collector, Vector, Fluent Bit or plain curl." /></div>
+          ) : (
+            <ul className="mt-4 divide-y divide-border" data-testid="api-key-list">
+              {keys.map((k) => (
+                <li key={k.id} className="flex items-center justify-between gap-4 py-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm">{k.name} <span className="ml-1 font-mono text-xs text-muted">olk_{k.prefix}_…</span></p>
+                    <p className="text-xs text-muted">
+                      {k.project} · created {k.createdAt.toLocaleDateString()} · {k.lastUsedAt ? `last used ${k.lastUsedAt.toLocaleString()}` : "never used"}
+                    </p>
+                  </div>
+                  {k.revokedAt ? (
+                    <span className="text-xs text-red-300">Revoked</span>
+                  ) : (
+                    <form action={revokeApiKeyAction.bind(null, slug, k.id)}>
+                      <ConfirmSubmit message={`Revoke "${k.name}"? Senders using it will get 401 immediately.`}>Revoke</ConfirmSubmit>
+                    </form>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          <details className="mt-4 rounded-lg bg-panel-2/60 p-3 text-xs">
+            <summary className="cursor-pointer text-slate-300">Quick start</summary>
+            <pre className="mt-3 overflow-x-auto whitespace-pre text-slate-300">{`curl -X POST ${appUrl}/api/v1/logs \\
+  -H "Authorization: Bearer olk_..." \\
+  -H "Content-Type: application/x-ndjson" \\
+  --data-binary @app.log.jsonl`}</pre>
+            <p className="mt-2 text-muted">OTLP: point an otlphttp exporter (encoding: json) at <span className="font-mono">{appUrl}/api/v1/logs</span> with the same header. Full reference in docs/ingest-api.md.</p>
+          </details>
+        </Card>
+      )}
+
+      {manage && (
+        <Card id="webhooks">
+          <CardTitle>Notifications &amp; webhooks</CardTitle>
+          <p className="mt-1 text-xs text-muted">
+            POSTed on new incidents and status changes. Generic JSON deliveries carry an HMAC-SHA256 signature in X-OpsLens-Signature; Slack format works with incoming webhooks.
+          </p>
+          <div className="mt-4"><WebhookForm action={createWebhookAction.bind(null, slug)} /></div>
+          {hooks.length === 0 ? (
+            <div className="mt-4"><EmptyState icon={Webhook} title="No webhooks yet" description="Add a Slack incoming webhook or any HTTPS endpoint to be told about incidents as they open." /></div>
+          ) : (
+            <ul className="mt-4 divide-y divide-border" data-testid="webhook-list">
+              {hooks.map((h) => (
+                <li key={h.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm">
+                      {h.name} <span className="ml-1 rounded bg-panel-2 px-1.5 py-0.5 text-[10px] uppercase text-muted">{h.format}</span>
+                      {!h.enabled && <span className="ml-1 text-xs text-amber-300">paused</span>}
+                    </p>
+                    <p className="truncate font-mono text-xs text-muted">{h.url}</p>
+                    <p className="text-xs text-muted">{h.events.join(", ")}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <WebhookTestButton action={testWebhookAction.bind(null, slug, h.id)} />
+                    <form action={toggleWebhookAction.bind(null, slug, h.id)}>
+                      <button className="text-xs text-muted hover:text-white">{h.enabled ? "Pause" : "Resume"}</button>
+                    </form>
+                    <form action={deleteWebhookAction.bind(null, slug, h.id)}>
+                      <ConfirmSubmit message={`Delete webhook "${h.name}"?`}>Delete</ConfirmSubmit>
+                    </form>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+          {deliveries.length > 0 && (
+            <div className="mt-5 border-t border-border pt-4">
+              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted">Recent deliveries</p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs" data-testid="delivery-log">
+                  <thead className="text-muted">
+                    <tr><th className="py-1.5 pr-3 font-normal">When</th><th className="pr-3 font-normal">Webhook</th><th className="pr-3 font-normal">Event</th><th className="pr-3 font-normal">Result</th><th className="font-normal">Time</th></tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {deliveries.map((d) => (
+                      <tr key={d.id}>
+                        <td className="py-1.5 pr-3 text-muted">{d.createdAt.toLocaleString()}</td>
+                        <td className="pr-3">{hookNames.get(d.webhookId)}</td>
+                        <td className="pr-3 font-mono">{d.event}</td>
+                        <td className={`pr-3 ${d.ok ? "text-emerald-400" : "text-red-400"}`}>{d.ok ? `✓ ${d.statusCode}` : `✗ ${d.error}`}</td>
+                        <td className="tabular-nums text-muted">{d.durationMs} ms</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </Card>
+      )}
     </div>
   );
 }

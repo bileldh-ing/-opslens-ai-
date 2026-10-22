@@ -4,6 +4,8 @@ import { listRemediations } from "@/server/queries";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ReviewButtons } from "@/components/review-buttons";
+import { EmptyState } from "@/components/empty-state";
+import { ShieldCheck } from "lucide-react";
 
 export default async function Remediations({ params }: { params: Promise<{ org: string }> }) {
   const { org: slug } = await params;
@@ -28,7 +30,9 @@ export default async function Remediations({ params }: { params: Promise<{ org: 
           {r.reviewNote && <p className="mt-3 text-xs text-muted">Review note: {r.reviewNote}</p>}
         </Card>
       ))}
-      {rows.length === 0 && <p className="text-sm text-muted">No proposals yet.</p>}
+      {rows.length === 0 && (
+        <EmptyState icon={ShieldCheck} title="No proposals yet" description="When an investigation suggests a rollback, runbook or patch, it lands here for review." />
+      )}
     </div>
   );
 }

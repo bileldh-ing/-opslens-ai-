@@ -38,6 +38,12 @@ export default async function IncidentPage({ params }: { params: Promise<{ org: 
                 <Button variant="outline">{label}</Button>
               </form>
             ))}
+          {can(role, "incident.export") && (
+            <span className="inline-flex overflow-hidden rounded-lg border border-border text-sm">
+              <a href={`/api/orgs/${slug}/incidents/${incident.id}/export?format=json`} className="px-3 py-2 text-slate-200 hover:bg-panel-2" download>Export JSON</a>
+              <a href={`/api/orgs/${slug}/incidents/${incident.id}/export?format=csv`} className="border-l border-border px-3 py-2 text-slate-200 hover:bg-panel-2" download>CSV</a>
+            </span>
+          )}
           {can(role, "investigation.run") && (
             <Link href={`/${slug}/investigate?project=${project.slug}&incident=${incident.id}&q=${ask}`} className="rounded-lg bg-accent px-4 py-2 text-sm font-medium hover:bg-blue-500">
               Investigate with AI

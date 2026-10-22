@@ -1,15 +1,13 @@
 /**
- * Runs golden cases against the seeded DB and prints a scorecard.
- * Usage: npm run eval  (migrates and seeds the configured database if needed)
+ * Runs golden cases against the seeded DB, prints a scorecard and records the run
+ * (visible on the Quality page). Usage: npm run eval  (migrates and seeds if needed)
  */
 import { eq } from "drizzle-orm";
-import { readUIMessageStream } from "ai";
 import { db, closeDb, schema } from "../src/db";
 import { aiConfigured } from "../src/server/ai/models";
-import { runInvestigation } from "../src/server/ai/agent";
-import type { InvestigationReport } from "../src/server/ai/report";
 import { runMigrations } from "../src/db/migrate";
 import { seedDemo } from "../src/server/demo-seed";
+import { runEvalSuite } from "../src/server/evals/run";
 import { CASES } from "./cases";
 
 async function main() {
@@ -20,36 +18,16 @@ async function main() {
   if (!project || !user) throw new Error("Seed the database first (npm run db:seed).");
 
   console.log(`Running ${CASES.length} cases with ${aiConfigured ? "the LLM agent" : "deterministic triage (no model configured)"}\n`);
-  let passed = 0;
-  for (const c of CASES) {
-    const { investigationId, stream } = await runInvestigation({
-      projectId: project.id,
-      userId: user.id,
-      question: c.question,
-      messages: [{ id: "1", role: "user", parts: [{ type: "text", text: c.question }] }],
-    });
-    // Drain the stream: persistence happens as it is consumed.
-    for await (const _ of readUIMessageStream({ stream })) void _;
-    const [inv] = await db.select().from(schema.investigations).where(eq(schema.investigations.id, investigationId));
-    const report = inv.report as InvestigationReport | null;
-
-    const failures: string[] = [];
-    if (!report) failures.push("no report submitted");
-    else {
-      if (!c.expect.status.includes(report.status)) failures.push(`status=${report.status}`);
-      const top = report.hypotheses[0];
-      if (c.expect.topCauseMentions && !(top && c.expect.topCauseMentions.test(top.cause + top.reasoning)))
-        failures.push(`top cause "${top?.cause}" does not match ${c.expect.topCauseMentions}`);
-      const citedTypes = new Set(report.hypotheses.flatMap((h) => h.evidence.map((e) => e.type)));
-      for (const t of c.expect.mustCite ?? []) if (!citedTypes.has(t)) failures.push(`missing ${t} citation`);
-      if (c.expect.maxConfidence !== undefined && (top?.confidence ?? 0) > c.expect.maxConfidence)
-        failures.push(`overconfident (${top?.confidence})`);
-    }
-    if (failures.length === 0) passed++;
-    console.log(`${failures.length ? "✗" : "✓"} ${c.name}${failures.length ? `\n    ${failures.join("\n    ")}` : ""}`);
+  const run = await runEvalSuite({ projectId: project.id, userId: user.id, orgId: project.orgId, trigger: process.env.CI ? "ci" : "cli" });
+  for (const r of run.results) {
+    console.log(`${r.passed ? "✓" : "✗"} ${r.name}${r.passed ? "" : `\n    ${r.failures.join("\n    ")}`}`);
   }
-  console.log(`\n${passed}/${CASES.length} eval cases passed`);
-  if (passed < CASES.length) process.exitCode = 1;
+  console.log(`\n${run.passed}/${run.total} eval cases passed`);
+  if (process.env.EVAL_OUTPUT) {
+    const { writeFile } = await import("node:fs/promises");
+    await writeFile(process.env.EVAL_OUTPUT, JSON.stringify(run, null, 2));
+  }
+  if (run.passed < run.total) process.exitCode = 1;
 }
 
 main().catch((e) => { console.error(e); process.exitCode = 1; }).finally(() => closeDb());

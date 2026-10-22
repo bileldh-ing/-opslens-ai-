@@ -1,4 +1,4 @@
-import { Activity, Bot, Database, LayoutDashboard, ScrollText, Settings, ShieldCheck, Sparkles } from "lucide-react";
+import { Activity, Bot, Database, FlaskConical, LayoutDashboard, ScrollText, Settings, ShieldCheck, Sparkles } from "lucide-react";
 import { requireOrg } from "@/lib/auth";
 import { can } from "@/lib/rbac";
 import { signOut } from "@/app/actions/auth";
@@ -14,6 +14,7 @@ export default async function OrgLayout({ children, params }: { children: React.
     { href: `/${slug}/investigate`, label: "Investigate", icon: Bot },
     { href: `/${slug}/remediations`, label: "Remediations", icon: ShieldCheck },
     { href: `/${slug}/sources`, label: "Data sources", icon: Database },
+    { href: `/${slug}/quality`, label: "Quality", icon: FlaskConical },
     ...(can(role, "audit.read") ? [{ href: `/${slug}/audit`, label: "Audit log", icon: ScrollText }] : []),
     { href: `/${slug}/settings`, label: "Settings", icon: Settings },
   ];

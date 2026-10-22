@@ -51,12 +51,13 @@ export function InvestigationChat({
           setInput("");
         }}
       >
-        <select value={project} onChange={(e) => setProject(e.target.value)} className="rounded-lg border border-border bg-panel-2 px-3 text-sm">
+        <select value={project} onChange={(e) => setProject(e.target.value)} aria-label="Project" className="rounded-lg border border-border bg-panel-2 px-3 text-sm">
           {projects.map((p) => <option key={p.slug} value={p.slug}>{p.name}</option>)}
         </select>
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          aria-label="Question"
           placeholder="Why did the payment service start returning 500s after the last deploy?"
           className="flex-1 rounded-lg border border-border bg-panel-2 px-3 py-2 text-sm focus:border-accent focus:outline-none"
         />

@@ -33,7 +33,3 @@ export async function readiness(timeoutMs = 3000) {
   const ok = Object.values(checks).every((c) => c.ok);
   return { status: ok ? ("ready" as const) : ("unavailable" as const), version: APP_VERSION, checks };
 }
-
-export function liveness() {
-  return { status: "ok" as const, version: APP_VERSION, uptimeSec: Math.round(process.uptime()) };
-}

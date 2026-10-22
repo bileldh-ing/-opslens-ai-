@@ -6,6 +6,7 @@ import { inferSeverity, suspectDeployment } from "./correlate";
 import { chunkText, estimateTokens } from "./chunk";
 import { embedText, embedTexts } from "../ai/embeddings";
 import { sha256 } from "@/lib/utils";
+import { incidentPayloads, notify } from "../integrations/webhooks";
 
 type Service = typeof schema.services.$inferSelect;
 
@@ -158,6 +159,7 @@ export async function detectIncidents(projectId: string, groupIds: string[]) {
     ]);
     created.push(incident.id);
   }
+  for (const { orgId, payload } of await incidentPayloads(created)) await notify(orgId, "incident.created", payload);
   return created;
 }
 

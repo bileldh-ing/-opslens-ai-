@@ -14,6 +14,9 @@ export const PERMISSIONS = {
   "member.invite": "admin",
   "project.manage": "admin",
   "audit.read": "admin",
+  "integrations.manage": "admin",
+  "evals.run": "admin",
+  "incident.export": "member",
   "billing.manage": "owner",
   "org.delete": "owner",
 } as const satisfies Record<string, Role>;

@@ -2,6 +2,8 @@ import Link from "next/link";
 import { requireOrg } from "@/lib/auth";
 import { listIncidents } from "@/server/queries";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/empty-state";
+import { Activity } from "lucide-react";
 
 export default async function Incidents({ params }: { params: Promise<{ org: string }> }) {
   const { org: slug } = await params;
@@ -27,7 +29,16 @@ export default async function Incidents({ params }: { params: Promise<{ org: str
             ))}
           </tbody>
         </table>
-        {rows.length === 0 && <p className="p-8 text-center text-sm text-muted">No incidents yet. Upload logs to get started.</p>}
+        {rows.length === 0 && (
+          <div className="bg-panel p-6">
+            <EmptyState
+              icon={Activity}
+              title="No incidents yet"
+              description="Incidents open automatically when recurring errors cross the noise floor. Upload a log file or send logs with an ingest key."
+              action={<Link href={`/${slug}/sources`} className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium hover:bg-blue-500">Add data sources</Link>}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
