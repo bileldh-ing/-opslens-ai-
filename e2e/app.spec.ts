@@ -62,7 +62,8 @@ test.describe("demo workspace", () => {
 
   test("incident detail, export and triage investigation", async ({ page }) => {
     await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Incidents" }).click();
-    await page.locator("table a").first().click();
+    // The open payment-service incident is the one correlated with deploy v2.14.0.
+    await page.locator("tbody tr").filter({ hasText: "payment-service" }).filter({ hasNotText: "resolved" }).first().locator("a").click();
     await expect(page.getByText("Suspected deployment")).toBeVisible();
     await expect(page.getByText("v2.14.0").first()).toBeVisible();
 

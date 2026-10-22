@@ -31,7 +31,9 @@ export async function rateLimit(
   return { allowed: true, remaining: Math.max(0, limit - count), resetMs: windowMs };
 }
 
-const windows = new Map<string, number[]>();
+// Shared across Next.js server bundles in one process (route handlers and actions are separate module graphs).
+const g = globalThis as unknown as { __opslensRateWindows?: Map<string, number[]> };
+const windows = (g.__opslensRateWindows ??= new Map<string, number[]>());
 
 /** Same sliding-window semantics, in process memory. For single-instance local runs only. */
 export function memoryRateLimit(key: string, limit: number, windowMs: number, now = Date.now()): RateLimitResult {

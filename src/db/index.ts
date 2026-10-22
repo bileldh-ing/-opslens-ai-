@@ -40,8 +40,13 @@ function createDb(): DB {
   return drizzlePg(pool, { schema });
 }
 
-export const db: DB = globalForDb.db ?? createDb();
-if (process.env.NODE_ENV !== "production") globalForDb.db = db;
+/**
+ * One client per process, in every environment. Next.js evaluates this module once per server
+ * bundle (route handlers, server actions, pages); without the global, production would open
+ * several pools, and with PGlite several independent engines on the same data directory that
+ * never see each other's writes.
+ */
+export const db: DB = (globalForDb.db ??= createDb());
 
 /** Close the underlying connection (scripts and tests). */
 export async function closeDb() {
