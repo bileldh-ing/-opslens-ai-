@@ -237,6 +237,8 @@ test("OpsLens AI product tour", async ({ page, context }) => {
     await click(page, page.getByRole("button", { name: "Sign in" }));
     await page.getByText("Invalid email or password.").waitFor({ timeout: 10000 });
     await wait(page, 1800);
+    // the server action resets the form after a failed attempt, so fill both fields again
+    await type(page, page.getByLabel("Email"), "demo@opslens.dev", 30);
     await type(page, page.getByLabel("Password"), "opslens-demo-123", 40);
     await click(page, page.getByRole("button", { name: "Sign in" }));
     await page.waitForURL(new RegExp(`/${ORG}$`), { timeout: 20000 });
@@ -539,7 +541,7 @@ test("OpsLens AI product tour", async ({ page, context }) => {
   });
   begin("github_actions", "GitHub Actions pipeline");
   await step(page, "github actions", async () => {
-    await goto(page, `${REPO}/actions`);
+    await goto(page, `${REPO}/actions/workflows/ci.yml?query=branch%3Amain`);
     await wait(page, 3500);
     await scrollTo(page, 250, 1500);
     await wait(page, 2000);

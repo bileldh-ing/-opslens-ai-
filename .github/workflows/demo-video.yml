@@ -50,11 +50,11 @@ jobs:
           for p in / /login /signup /offline /manifest.webmanifest; do curl -s -o /dev/null http://localhost:3000$p; done
       - name: Start virtual display and screen capture
         run: |
-          Xvfb :99 -screen 0 1920x1080x24 -nolisten tcp > xvfb.log 2>&1 &
+          Xvfb :99 -screen 0 1920x1280x24 -nolisten tcp > xvfb.log 2>&1 &
           for i in $(seq 1 30); do xdpyinfo -display :99 >/dev/null 2>&1 && break; sleep 0.5; done
           mkdir -p demo-output
           date +%s%3N > demo-output/capture-start-ms.txt
-          nohup ffmpeg -nostdin -y -f x11grab -draw_mouse 0 -video_size 1920x1080 -framerate 30 -i :99 \
+          nohup ffmpeg -nostdin -y -f x11grab -draw_mouse 0 -video_size 1920x1280 -framerate 30 -i :99 \
             -c:v libx264 -preset veryfast -crf 17 -pix_fmt yuv420p demo-output/tour-raw.mkv > ffmpeg.log 2>&1 &
           echo $! > ffmpeg.pid
           sleep 2

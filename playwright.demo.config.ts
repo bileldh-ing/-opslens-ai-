@@ -1,7 +1,7 @@
 import { defineConfig } from "@playwright/test";
 
 /**
- * Records the scripted product tour (e2e/demo.tour.ts) in a headed Chromium filling a 1920x1080 X display,
+ * Records the scripted product tour (e2e/demo.tour.ts) in a headed Chromium on an X display,
  * which .github/workflows/demo-video.yml captures with ffmpeg. Expects `npm run demo` on :3000 already.
  * Never picked up by the normal E2E run (playwright.config.ts only matches *.spec.ts).
  */
@@ -21,9 +21,10 @@ export default defineConfig({
     launchOptions: {
       ignoreDefaultArgs: ["--enable-automation"],
       args: [
-        "--kiosk",
+        // --window-size is in DIPs: 1440x810 page + ~87 DIP of browser UI. The workflow captures the
+        // whole X screen and the editor crops the page area (located via the green sync frame).
         "--window-position=0,0",
-        "--window-size=1920,1080",
+        "--window-size=1440,900",
         `--force-device-scale-factor=${process.env.DEMO_SCALE ?? "1.3333"}`,
         "--hide-scrollbars",
         "--disable-infobars",
