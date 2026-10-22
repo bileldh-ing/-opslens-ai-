@@ -1,6 +1,7 @@
 import { drizzle as drizzlePg, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import * as schema from "./schema";
+import { env } from "@/lib/env";
 
 /**
  * Database client.
@@ -11,7 +12,7 @@ import * as schema from "./schema";
  */
 export type DB = NodePgDatabase<typeof schema>;
 
-const url = process.env.DATABASE_URL ?? "pglite://.data/opslens";
+const url = env().DATABASE_URL;
 
 const globalForDb = globalThis as unknown as { db?: DB; pool?: Pool; close?: () => Promise<void> };
 

@@ -44,3 +44,28 @@ export function memoryRateLimit(key: string, limit: number, windowMs: number, no
   windows.set(key, hits);
   return { allowed: true, remaining: limit - hits.length, resetMs: windowMs };
 }
+
+/** Counts hits in the window without recording a new one. */
+export async function peekRateLimit(key: string, limit: number, windowMs: number, now = Date.now()): Promise<RateLimitResult> {
+  if (!redisConfigured) {
+    const hits = (windows.get(key) ?? []).filter((t) => t > now - windowMs);
+    windows.set(key, hits);
+    return hits.length >= limit
+      ? { allowed: false, remaining: 0, resetMs: hits[0] + windowMs - now }
+      : { allowed: true, remaining: limit - hits.length, resetMs: windowMs };
+  }
+  const redis = getRedis();
+  const redisKey = `rl:${key}`;
+  await redis.zremrangebyscore(redisKey, 0, now - windowMs);
+  const count = await redis.zcard(redisKey);
+  return count >= limit ? { allowed: false, remaining: 0, resetMs: windowMs } : { allowed: true, remaining: limit - count, resetMs: windowMs };
+}
+
+/** Clears a window (e.g. after a successful login). */
+export async function resetRateLimit(key: string): Promise<void> {
+  if (!redisConfigured) {
+    windows.delete(key);
+    return;
+  }
+  await getRedis().del(`rl:${key}`);
+}

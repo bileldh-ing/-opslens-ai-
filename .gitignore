@@ -8,3 +8,10 @@ next-env.d.ts
 coverage
 uploads
 .data
+playwright-report
+test-results
+blob-report
+/playwright/.cache
+.eslintcache
+lhci_reports
+.lighthouseci

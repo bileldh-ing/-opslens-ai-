@@ -101,3 +101,8 @@ export async function listAudit(orgId: string) {
 export async function listProjects(orgId: string) {
   return db.select().from(schema.projects).where(eq(schema.projects.orgId, orgId)).orderBy(schema.projects.name);
 }
+
+/** Kept outside components so render stays pure (react-hooks/purity). */
+export function hoursAgo(hours: number, now = Date.now()): Date {
+  return new Date(now - hours * 3600 * 1000);
+}

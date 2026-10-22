@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --no-file-parallelism",
     "test:watch": "vitest",
     "eval": "tsx evals/run.ts",
     "db:generate": "drizzle-kit generate",
@@ -16,7 +16,10 @@
     "db:push": "drizzle-kit push",
     "db:seed": "tsx scripts/seed.ts",
     "worker": "tsx src/server/jobs/worker.ts",
-    "setup": "tsx scripts/seed.ts"
+    "setup": "tsx scripts/seed.ts",
+    "lint": "eslint .",
+    "test:coverage": "vitest run --no-file-parallelism --coverage",
+    "verify": "npm run lint && npm run typecheck && npm test && npm run eval"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.98",
@@ -39,12 +42,16 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^22",
     "@types/pg": "^8",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitest/coverage-v8": "^5.0.5",
     "drizzle-kit": "^0.31.11",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.4.2",
     "tailwindcss": "^4.3.3",
     "tsx": "4.23.15",
     "typescript": "^5.9",

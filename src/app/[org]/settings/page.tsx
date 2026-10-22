@@ -5,7 +5,7 @@ import { can } from "@/lib/rbac";
 import { PLAN_LIMITS } from "@/lib/plans";
 import { inviteMember } from "@/app/actions/invitations";
 import { createProject } from "@/app/actions/workspace";
-import { listProjects } from "@/server/queries";
+import { hoursAgo, listProjects } from "@/server/queries";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { InviteForm, ProjectForm } from "@/components/settings-forms";
@@ -28,7 +28,7 @@ function Meter({ label, used, limit }: { label: string; used: number; limit: num
 export default async function SettingsPage({ params }: { params: Promise<{ org: string }> }) {
   const { org: slug } = await params;
   const { org, role } = await requireOrg(slug);
-  const dayAgo = new Date(Date.now() - 24 * 3600 * 1000);
+  const dayAgo = hoursAgo(24);
 
   const [members, invites, projects, [{ value: investigationsToday }]] = await Promise.all([
     db
