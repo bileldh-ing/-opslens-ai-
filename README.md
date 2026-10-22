@@ -189,6 +189,18 @@ npm run demo -- --reset # start from a clean demo database
 npm run webhook:receiver  # optional: local webhook endpoint on :4000 that verifies signatures
 ```
 
+### Recording the product tour
+
+`e2e/demo.tour.ts` is a scripted walkthrough of every feature (visible cursor, click ripples, smooth scrolling,
+deliberate pauses) that writes per-scene timestamps to `demo-output/scenes.json`. It is not part of the E2E suite.
+The manual **Demo video** workflow (`.github/workflows/demo-video.yml`, *Actions → Demo video → Run workflow*) builds the app,
+starts the demo server and webhook receiver, runs the tour in headed Chromium on a virtual display, captures it with ffmpeg,
+and uploads the raw recording plus `scenes.json` as the `demo-tour` artifact. To run it locally against `npm run demo`:
+
+```bash
+npx playwright test -c playwright.demo.config.ts   # needs a display (e.g. xvfb-run) because it runs headed
+```
+
 ## Roadmap
 
 - [ ] GitHub integration: read the diff of the suspected deploy, open draft PRs for approved patches
