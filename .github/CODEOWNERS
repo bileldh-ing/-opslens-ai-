@@ -1,0 +1,8 @@
+# Default reviewers for everything in the repository.
+* @bileldh-ing
+
+# Security-sensitive areas.
+/src/lib/ @bileldh-ing
+/src/proxy.ts @bileldh-ing
+/.github/workflows/ @bileldh-ing
+/drizzle/ @bileldh-ing

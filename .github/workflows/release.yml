@@ -1,0 +1,66 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish GitHub Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Verify
+        run: |
+          npm run lint
+          npm run typecheck
+          npm test
+          npm run eval
+        env:
+          DATABASE_URL: pglite://.data/release
+      - name: Build standalone bundle
+        run: |
+          npm run build
+          cp -r .next/static .next/standalone/.next/static
+          cp -r public .next/standalone/public
+          cp -r drizzle .next/standalone/drizzle
+          tar -czf "opslens-ai-${GITHUB_REF_NAME}-standalone.tgz" -C .next standalone
+          sha256sum "opslens-ai-${GITHUB_REF_NAME}-standalone.tgz" > "opslens-ai-${GITHUB_REF_NAME}-standalone.tgz.sha256"
+      - name: Generate changelog since previous tag
+        run: |
+          prev=$(git describe --tags --abbrev=0 "${GITHUB_REF_NAME}^" 2>/dev/null || true)
+          range=${prev:+$prev..}${GITHUB_REF_NAME}
+          {
+            echo "## OpsLens AI ${GITHUB_REF_NAME}"
+            echo
+            if [ -n "$prev" ]; then echo "Changes since ${prev}:"; else echo "Initial release."; fi
+            echo
+            git log --no-merges --pretty='- %s (%h)' "$range"
+            echo
+            echo "### Container image"
+            echo '```'
+            echo "docker pull ghcr.io/bileldh-ing/opslens-ai:${GITHUB_REF_NAME#v}"
+            echo '```'
+          } > RELEASE_NOTES.md
+          cat RELEASE_NOTES.md
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "OpsLens AI ${GITHUB_REF_NAME}" \
+            --notes-file RELEASE_NOTES.md \
+            --verify-tag \
+            "opslens-ai-${GITHUB_REF_NAME}-standalone.tgz" \
+            "opslens-ai-${GITHUB_REF_NAME}-standalone.tgz.sha256"

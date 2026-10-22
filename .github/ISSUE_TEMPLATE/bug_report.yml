@@ -1,0 +1,40 @@
+name: Bug report
+description: Something is broken or behaves unexpectedly
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: Include the request id (X-Request-Id header) if you have one.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Go to …\n2. Click …\n3. See error"
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: Deployment
+      options: [Local (PGlite), Docker Compose, Container image (GHCR), Other]
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: From /api/health or the image tag
+      placeholder: 1.0.0
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      render: shell

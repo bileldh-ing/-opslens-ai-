@@ -1,0 +1,17 @@
+node_modules
+.next
+.data
+uploads
+coverage
+playwright-report
+test-results
+.lighthouseci
+.git
+.github
+.env
+.env.*
+!.env.example
+*.tsbuildinfo
+Dockerfile
+docker-compose.yml
+README.md

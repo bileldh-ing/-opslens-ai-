@@ -1,6 +1,6 @@
 {
   "name": "opslens-ai",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "private": true,
   "description": "OpsLens AI \u2014 intelligent software operations platform: incident intelligence, RAG-powered investigation agent, and human-approved remediation.",
   "scripts": {
@@ -19,7 +19,12 @@
     "setup": "tsx scripts/seed.ts",
     "lint": "eslint .",
     "test:coverage": "vitest run --no-file-parallelism --coverage",
-    "verify": "npm run lint && npm run typecheck && npm test && npm run eval"
+    "verify": "npm run lint && npm run typecheck && npm test && npm run eval",
+    "e2e": "playwright test",
+    "e2e:install": "playwright install --with-deps chromium",
+    "demo": "sh scripts/demo.sh",
+    "webhook:receiver": "tsx scripts/webhook-receiver.ts",
+    "icons": "node scripts/generate-icons.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.98",

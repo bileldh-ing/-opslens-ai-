@@ -1,3 +1,6 @@
+# Full stack: Postgres 17 + pgvector, Redis (BullMQ + shared rate limits), app, worker.
+#   docker compose up --build            # app on http://localhost:3000
+#   docker compose run --rm seed         # optional: load the demo workspace
 services:
   postgres:
     image: pgvector/pgvector:pg17
@@ -11,28 +14,58 @@ services:
       test: ["CMD-SHELL", "pg_isready -U opslens"]
       interval: 5s
       retries: 10
+
   redis:
     image: redis:7-alpine
     ports: ["6379:6379"]
-  app:
-    build: .
-    env_file: .env
-    environment:
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
+
+  migrate:
+    build: { context: ., target: worker }
+    command: ["npx", "tsx", "scripts/migrate.ts"]
+    environment: &env
       DATABASE_URL: postgres://opslens:opslens@postgres:5432/opslens
       REDIS_URL: redis://redis:6379
-    ports: ["3000:3000"]
+      APP_URL: http://localhost:3000
+      UPLOAD_DIR: /data/uploads
+    volumes: [uploads:/data/uploads]
     depends_on:
       postgres: { condition: service_healthy }
-      redis: { condition: service_started }
-    profiles: ["full"]
-  worker:
-    build: .
-    command: ["node", "--import", "tsx", "src/server/jobs/worker.ts"]
-    env_file: .env
+
+  seed:
+    build: { context: ., target: worker }
+    command: ["npx", "tsx", "scripts/seed.ts"]
+    environment: *env
+    volumes: [uploads:/data/uploads]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    profiles: ["seed"]
+
+  app:
+    build: { context: ., target: runner }
+    image: ghcr.io/bileldh-ing/opslens-ai:latest
     environment:
-      DATABASE_URL: postgres://opslens:opslens@postgres:5432/opslens
-      REDIS_URL: redis://redis:6379
-    depends_on: [postgres, redis]
-    profiles: ["full"]
+      <<: *env
+      # OPENAI_API_KEY: sk-...   # optional: enables the LLM agent
+    ports: ["3000:3000"]
+    volumes: [uploads:/data/uploads]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    restart: unless-stopped
+
+  worker:
+    build: { context: ., target: worker }
+    environment: *env
+    volumes: [uploads:/data/uploads]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    restart: unless-stopped
+
 volumes:
   pgdata:
+  uploads:
