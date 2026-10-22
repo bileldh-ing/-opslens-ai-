@@ -1,0 +1,79 @@
+name: Demo video
+
+# Manual only: records the scripted product tour for the README/YouTube demo. Never runs on push/PR.
+on:
+  workflow_dispatch:
+    inputs:
+      scale:
+        description: Device scale factor (1.3333 renders a 1440x810 CSS viewport into 1920x1080)
+        default: "1.3333"
+      ci_run_url:
+        description: Optional GitHub Actions run URL to show in the CI/CD scene
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: demo-video
+  cancel-in-progress: true
+
+env:
+  NEXT_TELEMETRY_DISABLED: 1
+
+jobs:
+  record:
+    name: Record product tour (1920x1080)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Install Chromium, Xvfb, ffmpeg and fonts
+        run: |
+          npx playwright install --with-deps chromium
+          sudo apt-get update -q
+          sudo apt-get install -y -q xvfb ffmpeg x11-utils
+          sudo apt-get install -y -q fonts-inter fonts-jetbrains-mono fonts-noto-color-emoji || true
+      - name: Start demo server and webhook receiver
+        run: |
+          nohup npm run demo -- --reset > server.log 2>&1 &
+          nohup npm run webhook:receiver > webhook.log 2>&1 &
+          for i in $(seq 1 120); do curl -fs http://localhost:3000/api/ready >/dev/null && break; sleep 2; done
+          curl -fs http://localhost:3000/api/ready
+          # warm up the routes so the first visit in the recording is not a cold compile/render
+          for p in / /login /signup /offline /manifest.webmanifest; do curl -s -o /dev/null http://localhost:3000$p; done
+      - name: Start virtual display and screen capture
+        run: |
+          Xvfb :99 -screen 0 1920x1080x24 -nolisten tcp > xvfb.log 2>&1 &
+          for i in $(seq 1 30); do xdpyinfo -display :99 >/dev/null 2>&1 && break; sleep 0.5; done
+          mkdir -p demo-output
+          date +%s%3N > demo-output/capture-start-ms.txt
+          nohup ffmpeg -nostdin -y -f x11grab -draw_mouse 0 -video_size 1920x1080 -framerate 30 -i :99 \
+            -c:v libx264 -preset veryfast -crf 17 -pix_fmt yuv420p demo-output/tour-raw.mkv > ffmpeg.log 2>&1 &
+          echo $! > ffmpeg.pid
+          sleep 2
+      - name: Run the product tour
+        env:
+          DISPLAY: ":99"
+          DEMO_SCALE: ${{ inputs.scale }}
+          DEMO_CI_RUN_URL: ${{ inputs.ci_run_url }}
+        run: npx playwright test -c playwright.demo.config.ts
+      - name: Stop capture
+        if: always()
+        run: |
+          kill -INT "$(cat ffmpeg.pid)" || true
+          for i in $(seq 1 30); do kill -0 "$(cat ffmpeg.pid)" 2>/dev/null || break; sleep 1; done
+          cp server.log webhook.log ffmpeg.log demo-output/ 2>/dev/null || true
+          ls -la demo-output
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: demo-tour
+          path: demo-output/
+          retention-days: 7
