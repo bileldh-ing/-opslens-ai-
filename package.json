@@ -27,8 +27,8 @@
     "icons": "node scripts/generate-icons.mjs"
   },
   "dependencies": {
-    "@ai-sdk/openai": "^4.0.98",
-    "@ai-sdk/react": "^4.0.151",
+    "@ai-sdk/openai": "^4.0.101",
+    "@ai-sdk/react": "^4.0.154",
     "@electric-sql/pglite": "0.5.10",
     "@electric-sql/pglite-pgvector": "0.0.11",
     "ai": "^7.0.147",
